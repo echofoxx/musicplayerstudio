@@ -5,6 +5,7 @@ import type { VisualizerMode } from '../types';
 interface Props {
   mode: VisualizerMode;
   isPlaying: boolean;
+  large?: boolean;
 }
 
 function getThemeColors() {
@@ -15,7 +16,7 @@ function getThemeColors() {
   };
 }
 
-export function Visualizer({ mode, isPlaying }: Props) {
+export function Visualizer({ mode, isPlaying, large }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -41,7 +42,7 @@ export function Visualizer({ mode, isPlaying }: Props) {
 
       if (mode === 'bars') {
         analyser.getByteFrequencyData(freqData);
-        const bars = 48;
+        const bars = large ? 96 : 48;
         const step = Math.floor(freqData.length / bars);
         const barWidth = width / bars;
         for (let i = 0; i < bars; i++) {
@@ -72,7 +73,7 @@ export function Visualizer({ mode, isPlaying }: Props) {
         const cx = width / 2;
         const cy = height / 2;
         const baseRadius = Math.min(width, height) * 0.28;
-        const bars = 64;
+        const bars = large ? 128 : 64;
         for (let i = 0; i < bars; i++) {
           const v = freqData[i * Math.floor(freqData.length / bars)] / 255;
           const angle = (i / bars) * Math.PI * 2;
@@ -102,7 +103,7 @@ export function Visualizer({ mode, isPlaying }: Props) {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [mode]);
+  }, [mode, large]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -115,8 +116,11 @@ export function Visualizer({ mode, isPlaying }: Props) {
       ctx?.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     };
     resize();
-    window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
+    // A window resize listener alone misses layout changes from CSS/prop
+    // changes (e.g. entering fullscreen), so watch the element directly.
+    const observer = new ResizeObserver(resize);
+    observer.observe(canvas);
+    return () => observer.disconnect();
   }, []);
 
   if (mode === 'off') return null;
@@ -124,7 +128,7 @@ export function Visualizer({ mode, isPlaying }: Props) {
   return (
     <canvas
       ref={canvasRef}
-      className="w-full h-28 rounded-[var(--radius-md,12px)]"
+      className={`w-full rounded-[var(--radius-md,12px)] ${large ? 'h-full' : 'h-48'}`}
       style={{ opacity: isPlaying ? 1 : 0.4, transition: 'opacity 0.3s ease' }}
     />
   );

@@ -12,6 +12,8 @@ export function EQPanel() {
   const setEQGain = usePlayerStore((s) => s.setEQGain);
   const applyEQPreset = usePlayerStore((s) => s.applyEQPreset);
   const toggleEQEnabled = usePlayerStore((s) => s.toggleEQEnabled);
+  const isYouTube = usePlayerStore((s) => s.currentTrack?.source === 'youtube');
+  const disabled = !eqEnabled || isYouTube;
 
   return (
     <div
@@ -25,7 +27,8 @@ export function EQPanel() {
           </h2>
           <button
             onClick={toggleEQEnabled}
-            className="text-xs px-2 py-1 rounded-full cursor-pointer border"
+            disabled={isYouTube}
+            className="text-xs px-2 py-1 rounded-full cursor-pointer border disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               borderColor: 'var(--border)',
               color: eqEnabled ? 'var(--accent)' : 'var(--text-faint)',
@@ -33,13 +36,19 @@ export function EQPanel() {
           >
             {eqEnabled ? 'On' : 'Off'}
           </button>
+          {isYouTube && (
+            <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
+              Not available for YouTube tracks
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1 flex-wrap">
           {Object.keys(EQ_PRESETS).map((name) => (
             <button
               key={name}
               onClick={() => applyEQPreset(name)}
-              className="text-xs px-2.5 py-1 rounded-full cursor-pointer transition-colors"
+              disabled={isYouTube}
+              className="text-xs px-2.5 py-1 rounded-full cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
               style={{
                 background: eqPreset === name ? 'var(--accent)' : 'transparent',
                 color: eqPreset === name ? 'var(--accent-contrast)' : 'var(--text-muted)',
@@ -66,7 +75,7 @@ export function EQPanel() {
               max={12}
               step={1}
               value={eqGains[i]}
-              disabled={!eqEnabled}
+              disabled={disabled}
               onChange={(e) => setEQGain(i, Number(e.target.value))}
             />
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { audioEngine } from '../audio/audioEngine';
+import { youtubePlayer } from '../audio/youtubePlayer';
 import { LocalSource } from '../sources/localSource';
 import { YouTubeSource } from '../sources/youtubeSource';
 import { SpotifySource } from '../sources/spotifySource';
@@ -25,6 +26,11 @@ function shuffleKeeping(list: Track[], keepId: string | undefined): Track[] {
   return keep ? [keep, ...rest] : rest;
 }
 
+function isPlayable(track: Track): boolean {
+  if (track.unplayable) return false;
+  return Boolean(track.streamUrl) || Boolean(track.youtubeVideoId);
+}
+
 interface PlayerState {
   library: Track[];
   queueSource: Track[];
@@ -48,6 +54,7 @@ interface PlayerState {
   searchResults: Record<SourceKind, Track[]>;
   searchNotes: Partial<Record<SourceKind, string>>;
   isImporting: boolean;
+  isScratching: boolean;
 
   sources: Record<SourceKind, MusicSource>;
 
@@ -69,6 +76,8 @@ interface PlayerState {
   setActiveSource: (kind: SourceKind) => void;
   setSearchQuery: (kind: SourceKind, query: string) => void;
   runSearch: (kind: SourceKind) => Promise<void>;
+  setScratching: (scratching: boolean) => void;
+  setScratchPlaybackRate: (rate: number) => void;
 }
 
 const persistedTheme = (localStorage.getItem('echo:theme') as ThemeName | null) ?? 'modern-dark';
@@ -80,17 +89,40 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     spotify: new SpotifySource(),
   };
 
-  audioEngine.onTimeUpdate(({ currentTime, duration }) => set({ currentTime, duration }));
+  const playViaEngine = async (track: Track, opts: { crossfade?: boolean } = {}) => {
+    if (track.source === 'youtube' && track.youtubeVideoId) {
+      audioEngine.pause();
+      await youtubePlayer.loadVideo(track.youtubeVideoId);
+      youtubePlayer.setVolume(get().volume);
+      youtubePlayer.play();
+    } else {
+      youtubePlayer.pause();
+      await audioEngine.playTrack(track, opts);
+    }
+  };
+
+  audioEngine.onTimeUpdate(({ currentTime, duration }) => {
+    if (get().currentTrack?.source !== 'youtube') set({ currentTime, duration });
+  });
 
   audioEngine.onEnded(() => {
+    if (get().currentTrack?.source === 'youtube' || get().isScratching) return;
     if (get().crossfade === 0) get().next(true);
   });
 
   audioEngine.onNearEnd(() => {
     const track = get().currentTrack;
-    if (!track || audioEngine.hasCrossfadeTriggered(track.id)) return;
+    if (!track || track.source === 'youtube' || get().isScratching || audioEngine.hasCrossfadeTriggered(track.id)) return;
     audioEngine.markCrossfadeTriggered(track.id);
     get().next(true);
+  });
+
+  youtubePlayer.onTimeUpdate(({ currentTime, duration }) => {
+    if (get().currentTrack?.source === 'youtube') set({ currentTime, duration });
+  });
+
+  youtubePlayer.onEnded(() => {
+    if (get().currentTrack?.source === 'youtube' && !get().isScratching) get().next(true);
   });
 
   return {
@@ -116,6 +148,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     searchResults: { local: [], youtube: [], spotify: [] },
     searchNotes: {},
     isImporting: false,
+    isScratching: false,
     sources,
 
     importFiles: async (files) => {
@@ -126,7 +159,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     playFromList: async (track, list) => {
-      if (track.unplayable || !track.streamUrl) return;
+      if (!isPlayable(track)) return;
       const { shuffle, crossfade } = get();
       const playOrder = shuffle ? shuffleKeeping(list, track.id) : list;
       const position = playOrder.findIndex((t) => t.id === track.id);
@@ -137,17 +170,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         currentTrack: track,
         isPlaying: true,
       });
-      await audioEngine.playTrack(track, { crossfade: crossfade > 0 });
+      await playViaEngine(track, { crossfade: crossfade > 0 });
     },
 
     togglePlay: () => {
       const { isPlaying, currentTrack } = get();
       if (!currentTrack) return;
+      const engine = currentTrack.source === 'youtube' ? youtubePlayer : audioEngine;
       if (isPlaying) {
-        audioEngine.pause();
+        engine.pause();
         set({ isPlaying: false });
       } else {
-        audioEngine.play();
+        engine.play();
         set({ isPlaying: true });
       }
     },
@@ -156,9 +190,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const { playOrder, position, repeat, crossfade, currentTrack } = get();
       if (playOrder.length === 0) return;
 
-      if (repeat === 'one' && auto) {
-        if (currentTrack) audioEngine.playTrack(currentTrack, { crossfade: false });
-        audioEngine.seek(0);
+      if (repeat === 'one' && auto && currentTrack) {
+        playViaEngine(currentTrack, { crossfade: false });
         return;
       }
 
@@ -172,14 +205,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
       const track = playOrder[nextPos];
       set({ position: nextPos, currentTrack: track, isPlaying: true });
-      audioEngine.playTrack(track, { crossfade: crossfade > 0 });
+      playViaEngine(track, { crossfade: crossfade > 0 });
     },
 
     prev: () => {
-      const { playOrder, position, repeat, currentTime, crossfade } = get();
+      const { playOrder, position, repeat, currentTime, crossfade, currentTrack } = get();
       if (playOrder.length === 0) return;
-      if (currentTime > 3) {
-        audioEngine.seek(0);
+      if (currentTime > 3 && currentTrack) {
+        const engine = currentTrack.source === 'youtube' ? youtubePlayer : audioEngine;
+        engine.seek(0);
         return;
       }
       let prevPos = position - 1;
@@ -189,16 +223,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
       const track = playOrder[prevPos];
       set({ position: prevPos, currentTrack: track, isPlaying: true });
-      audioEngine.playTrack(track, { crossfade: crossfade > 0 });
+      playViaEngine(track, { crossfade: crossfade > 0 });
     },
 
     seek: (seconds) => {
-      audioEngine.seek(seconds);
+      const engine = get().currentTrack?.source === 'youtube' ? youtubePlayer : audioEngine;
+      engine.seek(seconds);
       set({ currentTime: seconds });
     },
 
     setVolume: (v) => {
       audioEngine.setMasterVolume(v);
+      youtubePlayer.setVolume(v);
       set({ volume: v });
     },
 
@@ -267,6 +303,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         searchResults: { ...s.searchResults, [kind]: result.tracks },
         searchNotes: { ...s.searchNotes, [kind]: result.note },
       }));
+    },
+
+    setScratching: (scratching) => {
+      if (get().currentTrack?.source === 'local') audioEngine.setScratching(scratching);
+      set({ isScratching: scratching });
+    },
+
+    setScratchPlaybackRate: (rate) => {
+      if (get().currentTrack?.source === 'local') audioEngine.setPlaybackRate(rate);
     },
   };
 });

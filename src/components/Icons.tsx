@@ -105,3 +105,10 @@ export function SearchIcon({ size, className }: IconProps) {
     </svg>
   );
 }
+export function ExpandIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3" />
+    </svg>
+  );
+}

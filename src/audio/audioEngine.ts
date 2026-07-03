@@ -36,6 +36,7 @@ export class AudioEngine {
   private masterVolume = 0.85;
   private crossfadeTriggeredForTrack = new Set<string>();
   private rafId: number | null = null;
+  private scratching = false;
 
   private timeListeners = new Set<Listener<{ currentTime: number; duration: number }>>();
   private endedListeners = new Set<Listener<void>>();
@@ -98,7 +99,7 @@ export class AudioEngine {
         this.timeListeners.forEach((l) => l({ currentTime, duration }));
 
         const remaining = duration - currentTime;
-        if (this.crossfadeSeconds > 0 && remaining <= this.crossfadeSeconds + 0.05) {
+        if (!this.scratching && this.crossfadeSeconds > 0 && remaining <= this.crossfadeSeconds + 0.05) {
           this.nearEndListeners.forEach((l) => l({ remaining }));
         }
       }
@@ -131,6 +132,17 @@ export class AudioEngine {
 
   setCrossfadeDuration(seconds: number) {
     this.crossfadeSeconds = seconds;
+  }
+
+  /** Used while dragging the record for the scratch effect (see NowPlaying.tsx). */
+  setPlaybackRate(rate: number) {
+    const deck = this.decks?.[this.activeDeck];
+    if (deck) deck.el.playbackRate = Math.max(0.1, rate);
+  }
+
+  setScratching(active: boolean) {
+    this.scratching = active;
+    if (!active) this.setPlaybackRate(1);
   }
 
   get currentTrack(): Track | null {
@@ -219,7 +231,7 @@ export class AudioEngine {
       this.currentEndedDeck.removeEventListener('ended', this.currentEndedHandler);
     }
     const handler = () => {
-      if (this.crossfadeSeconds === 0) {
+      if (this.crossfadeSeconds === 0 && !this.scratching) {
         this.endedListeners.forEach((l) => l(undefined));
       }
     };

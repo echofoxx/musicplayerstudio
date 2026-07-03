@@ -16,6 +16,8 @@ export function StreamingPanel({ kind }: Props) {
   const setSearchQuery = usePlayerStore((s) => s.setSearchQuery);
   const runSearch = usePlayerStore((s) => s.runSearch);
   const source = usePlayerStore((s) => s.sources[kind]);
+  const playFromList = usePlayerStore((s) => s.playFromList);
+  const togglePlay = usePlayerStore((s) => s.togglePlay);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -61,7 +63,10 @@ export function StreamingPanel({ kind }: Props) {
               track={track}
               isActive={currentTrack?.id === track.id}
               isPlaying={isPlaying}
-              onPlay={() => {}}
+              onPlay={() => {
+                if (currentTrack?.id === track.id) togglePlay();
+                else playFromList(track, results);
+              }}
             />
           ))
         )}

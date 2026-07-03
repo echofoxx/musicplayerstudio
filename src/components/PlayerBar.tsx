@@ -44,6 +44,7 @@ export function PlayerBar({ onToggleEQ, eqOpen }: Props) {
   } = usePlayerStore();
 
   const disabled = !currentTrack;
+  const isYouTube = currentTrack?.source === 'youtube';
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
@@ -113,7 +114,7 @@ export function PlayerBar({ onToggleEQ, eqOpen }: Props) {
         </div>
 
         <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2" title="Crossfade duration">
+          <div className="flex items-center gap-2" title={isYouTube ? 'Crossfade is unavailable for YouTube tracks' : 'Crossfade duration'}>
             <span className="text-xs whitespace-nowrap" style={{ color: 'var(--text-faint)' }}>
               Crossfade {crossfade}s
             </span>
@@ -123,8 +124,9 @@ export function PlayerBar({ onToggleEQ, eqOpen }: Props) {
               max={12}
               step={1}
               value={crossfade}
+              disabled={isYouTube}
               onChange={(e) => setCrossfade(Number(e.target.value))}
-              className="w-20"
+              className="w-20 disabled:opacity-40"
             />
           </div>
 

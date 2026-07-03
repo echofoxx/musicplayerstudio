@@ -12,6 +12,8 @@ export interface Track {
   streamUrl?: string;
   /** True when the source adapter could not provide a real, playable stream. */
   unplayable?: boolean;
+  /** YouTube video ID — playback for these goes through the IFrame Player, not the Web Audio engine. */
+  youtubeVideoId?: string;
 }
 
 export type RepeatMode = 'off' | 'all' | 'one';
