@@ -2,7 +2,17 @@
 
 A browser-based music player for local files, with stubbed panels for
 YouTube Music and Spotify. Built with React, TypeScript, Tailwind CSS, and
-the Web Audio API.
+the Web Audio API. Everything runs client-side — imported audio never
+leaves your browser.
+
+![Echo — Modern Dark theme](docs/screenshots/modern-dark.png)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/vintage.png" alt="Vintage theme" /></td>
+    <td><img src="docs/screenshots/eq-panel.png" alt="5-band EQ panel" /></td>
+  </tr>
+</table>
 
 ## Features
 
@@ -33,27 +43,80 @@ the Web Audio API.
   are available — the rest of the app (queue, EQ, crossfade, UI) already
   treats all three sources uniformly.
 
-## Development
+## Tech stack
+
+React 19 · TypeScript · Vite · Tailwind CSS v4 · Zustand · Web Audio API ·
+`music-metadata`
+
+## Installation
+
+### Option A — Node.js (local dev or a plain static build)
+
+Requires Node.js 20+.
 
 ```bash
+git clone https://github.com/echofoxx/musicplayerstudio.git
+cd musicplayerstudio
 npm install
-npm run dev      # start dev server
-npm run build     # typecheck + production build
-npm run preview   # preview the production build
+npm run dev
 ```
 
-## Running with Docker
-
-No backend or database is required — this is a static site once built, so
-the image is just a multi-stage build (Node to build, NGINX to serve):
+Open http://localhost:5173. For a production build:
 
 ```bash
+npm run build      # typecheck + build to dist/
+npm run preview    # serve dist/ locally to sanity-check it
+```
+
+`dist/` is a fully static site — you can host it on anything that serves
+static files (GitHub Pages, Netlify, S3, an existing NGINX box, etc.).
+
+### Option B — Docker
+
+No backend or database is required — the image is a multi-stage build
+(Node builds it, NGINX serves the static output).
+
+```bash
+git clone https://github.com/echofoxx/musicplayerstudio.git
+cd musicplayerstudio
 docker compose up --build
 ```
 
-Then open http://localhost:8080. To use plain `docker` instead:
+Open http://localhost:8080. To use plain `docker` instead of Compose:
 
 ```bash
 docker build -t musicplayerstudio .
 docker run -p 8080:80 musicplayerstudio
 ```
+
+If you ever see nginx's stock "Welcome to nginx!" page instead of the app,
+it means an old image is being reused — force a clean rebuild:
+
+```bash
+docker compose down
+docker rmi musicplayerwebapp-web   # or whatever `docker compose images` shows
+docker compose build --no-cache
+docker compose up
+```
+
+## Roadmap
+
+- [ ] Real YouTube Music search + playback (YouTube Data API v3 key +
+      IFrame Player API) — no OAuth required, just an API key
+- [ ] Real Spotify search + playback (OAuth Client ID, Premium account,
+      Web Playback SDK)
+- [ ] Playlists — save/reorder/rename queues, not just "play this list"
+- [ ] Gapless playback for albums encoded without silence gaps
+- [ ] Waveform seek bar (scrub against the actual amplitude, not a plain
+      progress line)
+- [ ] Keyboard shortcuts (space to play/pause, arrows to seek/skip)
+- [ ] Mobile-responsive layout pass (currently optimized for desktop)
+- [ ] Persist library + queue across reloads (IndexedDB instead of only
+      in-memory state)
+- [ ] Optional PWA support for offline local-library playback
+
+Contributions and issues welcome — this is an active prototype.
+
+## License
+
+See [LICENSE](LICENSE).
