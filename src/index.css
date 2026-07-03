@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+}
+
+/* ---------- Modern Dark (default) ---------- */
+:root,
+[data-theme='modern-dark'] {
+  --bg: #101012;
+  --bg-elevated: #17171a;
+  --bg-panel: #1c1c20;
+  --border: #2a2a30;
+  --text: #f2f1ee;
+  --text-muted: #9a9aa2;
+  --text-faint: #6b6b74;
+  --accent: #e2c084;
+  --accent-strong: #f0d9a8;
+  --accent-contrast: #171410;
+  --danger: #e5675f;
+  --success: #7fbf8f;
+  --shadow: rgba(0, 0, 0, 0.45);
+  --font-ui: var(--font-sans);
+  --record-face: #0b0b0d;
+  --record-groove: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme='modern-light'] {
+  --bg: #f7f6f3;
+  --bg-elevated: #ffffff;
+  --bg-panel: #ffffff;
+  --border: #e3e1da;
+  --text: #17161a;
+  --text-muted: #66646c;
+  --text-faint: #9a98a0;
+  --accent: #b8863d;
+  --accent-strong: #96692a;
+  --accent-contrast: #fffaf0;
+  --danger: #c14b43;
+  --success: #4a8f5c;
+  --shadow: rgba(23, 22, 26, 0.12);
+  --font-ui: var(--font-sans);
+  --record-face: #1c1a18;
+  --record-groove: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme='vintage'] {
+  --bg: #ece2cd;
+  --bg-elevated: #f6efdf;
+  --bg-panel: #f1e8d4;
+  --border: #cdbd98;
+  --text: #33281c;
+  --text-muted: #6b5a44;
+  --text-faint: #937f62;
+  --accent: #a8451f;
+  --accent-strong: #832f10;
+  --accent-contrast: #fdf3e0;
+  --danger: #9a3324;
+  --success: #4f6b3f;
+  --shadow: rgba(60, 42, 20, 0.25);
+  --font-ui: var(--font-serif);
+  --record-face: #24170f;
+  --record-groove: rgba(255, 233, 190, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+[data-theme='vintage'] body {
+  background-image: radial-gradient(rgba(51, 40, 28, 0.035) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  outline: none;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg-elevated);
+  box-shadow: 0 0 0 1px var(--border);
+}
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg-elevated);
+}
+
+input[type='range'].vertical {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 4px;
+  height: 100px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+@keyframes spin-record {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.record-spin {
+  animation: spin-record 6s linear infinite;
+}
+.record-spin.paused {
+  animation-play-state: paused;
+}
