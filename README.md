@@ -41,3 +41,19 @@ npm run dev      # start dev server
 npm run build     # typecheck + production build
 npm run preview   # preview the production build
 ```
+
+## Running with Docker
+
+No backend or database is required — this is a static site once built, so
+the image is just a multi-stage build (Node to build, NGINX to serve):
+
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:8080. To use plain `docker` instead:
+
+```bash
+docker build -t musicplayerstudio .
+docker run -p 8080:80 musicplayerstudio
+```
