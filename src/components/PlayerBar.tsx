@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { usePlayerStore } from '../store/playerStore';
 import { formatTime } from '../utils/format';
 import {
@@ -14,7 +15,15 @@ import {
 } from './Icons';
 import type { VisualizerMode } from '../types';
 
-const VIS_MODES: VisualizerMode[] = ['off', 'bars', 'wave', 'vinyl'];
+const VIS_MODES: { mode: VisualizerMode; label: string }[] = [
+  { mode: 'off', label: 'Off' },
+  { mode: 'bars', label: 'Bars' },
+  { mode: 'mirror', label: 'Mirror Bars' },
+  { mode: 'wave', label: 'Waveform' },
+  { mode: 'vinyl', label: 'Vinyl Rings' },
+  { mode: 'particles', label: 'Particles' },
+  { mode: 'spectrogram', label: 'Spectrogram' },
+];
 
 interface Props {
   onToggleEQ: () => void;
@@ -46,6 +55,18 @@ export function PlayerBar({ onToggleEQ, eqOpen }: Props) {
   const disabled = !currentTrack;
   const isYouTube = currentTrack?.source === 'youtube';
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  const [visMenuOpen, setVisMenuOpen] = useState(false);
+  const visMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!visMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (visMenuRef.current && !visMenuRef.current.contains(e.target as Node)) setVisMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [visMenuOpen]);
 
   return (
     <div
@@ -145,17 +166,40 @@ export function PlayerBar({ onToggleEQ, eqOpen }: Props) {
             />
           </div>
 
-          <button
-            onClick={() => {
-              const idx = VIS_MODES.indexOf(visualizer);
-              setVisualizer(VIS_MODES[(idx + 1) % VIS_MODES.length]);
-            }}
-            title={`Visualizer: ${visualizer}`}
-            className="p-2 rounded-md cursor-pointer"
-            style={{ color: visualizer !== 'off' ? 'var(--accent)' : 'var(--text-muted)' }}
-          >
-            <WaveIcon size={18} />
-          </button>
+          <div className="relative" ref={visMenuRef}>
+            <button
+              onClick={() => setVisMenuOpen((v) => !v)}
+              title="Visualizer mode"
+              aria-pressed={visMenuOpen}
+              className="p-2 rounded-md cursor-pointer"
+              style={{ color: visualizer !== 'off' ? 'var(--accent)' : 'var(--text-muted)' }}
+            >
+              <WaveIcon size={18} />
+            </button>
+            {visMenuOpen && (
+              <div
+                className="absolute bottom-full right-0 mb-2 py-1 rounded-lg border shadow-xl z-10 min-w-[9rem]"
+                style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
+              >
+                {VIS_MODES.map(({ mode, label }) => (
+                  <button
+                    key={mode}
+                    onClick={() => {
+                      setVisualizer(mode);
+                      setVisMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-sm cursor-pointer"
+                    style={{
+                      color: visualizer === mode ? 'var(--accent)' : 'var(--text)',
+                      background: visualizer === mode ? 'var(--bg-panel)' : 'transparent',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <button
             onClick={onToggleEQ}

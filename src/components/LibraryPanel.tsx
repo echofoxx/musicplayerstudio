@@ -69,6 +69,7 @@ export function LibraryPanel() {
                 if (currentTrack?.id === track.id) togglePlay();
                 else playFromList(track, library);
               }}
+              showAddToPlaylist
             />
           ))
         )}

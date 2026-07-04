@@ -16,9 +16,17 @@ export interface Track {
   youtubeVideoId?: string;
 }
 
+export interface Playlist {
+  id: string;
+  name: string;
+  tracks: Track[];
+}
+
+export type SidebarTab = SourceKind | 'playlists';
+
 export type RepeatMode = 'off' | 'all' | 'one';
 
-export type VisualizerMode = 'off' | 'bars' | 'wave' | 'vinyl';
+export type VisualizerMode = 'off' | 'bars' | 'wave' | 'vinyl' | 'particles' | 'spectrogram' | 'mirror';
 
 export type ThemeName = 'modern-dark' | 'modern-light' | 'vintage';
 

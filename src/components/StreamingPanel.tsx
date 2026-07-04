@@ -67,6 +67,7 @@ export function StreamingPanel({ kind }: Props) {
                 if (currentTrack?.id === track.id) togglePlay();
                 else playFromList(track, results);
               }}
+              showAddToPlaylist={!track.unplayable}
             />
           ))
         )}

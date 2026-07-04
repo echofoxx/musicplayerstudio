@@ -8,7 +8,9 @@ import type { MusicSource } from '../sources/types';
 import {
   EQ_FREQUENCIES,
   EQ_PRESETS,
+  type Playlist,
   type RepeatMode,
+  type SidebarTab,
   type SourceKind,
   type ThemeName,
   type Track,
@@ -49,12 +51,13 @@ interface PlayerState {
   eqPreset: string;
   theme: ThemeName;
   visualizer: VisualizerMode;
-  activeSource: SourceKind;
+  activeSource: SidebarTab;
   searchQuery: Record<SourceKind, string>;
   searchResults: Record<SourceKind, Track[]>;
   searchNotes: Partial<Record<SourceKind, string>>;
   isImporting: boolean;
   isScratching: boolean;
+  playlists: Playlist[];
 
   sources: Record<SourceKind, MusicSource>;
 
@@ -73,12 +76,22 @@ interface PlayerState {
   toggleEQEnabled: () => void;
   setTheme: (theme: ThemeName) => void;
   setVisualizer: (mode: VisualizerMode) => void;
-  setActiveSource: (kind: SourceKind) => void;
+  setActiveSource: (kind: SidebarTab) => void;
   setSearchQuery: (kind: SourceKind, query: string) => void;
   runSearch: (kind: SourceKind) => Promise<void>;
   setScratching: (scratching: boolean) => void;
   setScratchPlaybackRate: (rate: number) => void;
+
+  createPlaylist: (name: string) => string;
+  renamePlaylist: (id: string, name: string) => void;
+  deletePlaylist: (id: string) => void;
+  addTrackToPlaylist: (playlistId: string, track: Track) => void;
+  removeTrackFromPlaylist: (playlistId: string, trackId: string) => void;
+  reorderPlaylistTrack: (playlistId: string, fromIndex: number, toIndex: number) => void;
+  playPlaylist: (playlistId: string, startTrack?: Track) => Promise<void>;
 }
+
+let playlistCounter = 0;
 
 const persistedTheme = (localStorage.getItem('echo:theme') as ThemeName | null) ?? 'modern-dark';
 
@@ -149,6 +162,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     searchNotes: {},
     isImporting: false,
     isScratching: false,
+    playlists: [],
     sources,
 
     importFiles: async (files) => {
@@ -312,6 +326,61 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     setScratchPlaybackRate: (rate) => {
       if (get().currentTrack?.source === 'local') audioEngine.setPlaybackRate(rate);
+    },
+
+    createPlaylist: (name) => {
+      const id = `playlist-${Date.now()}-${playlistCounter++}`;
+      const trimmed = name.trim() || 'Untitled Playlist';
+      set((s) => ({ playlists: [...s.playlists, { id, name: trimmed, tracks: [] }] }));
+      return id;
+    },
+
+    renamePlaylist: (id, name) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      set((s) => ({ playlists: s.playlists.map((p) => (p.id === id ? { ...p, name: trimmed } : p)) }));
+    },
+
+    deletePlaylist: (id) => {
+      set((s) => ({ playlists: s.playlists.filter((p) => p.id !== id) }));
+    },
+
+    addTrackToPlaylist: (playlistId, track) => {
+      set((s) => ({
+        playlists: s.playlists.map((p) =>
+          p.id === playlistId && !p.tracks.some((t) => t.id === track.id)
+            ? { ...p, tracks: [...p.tracks, track] }
+            : p,
+        ),
+      }));
+    },
+
+    removeTrackFromPlaylist: (playlistId, trackId) => {
+      set((s) => ({
+        playlists: s.playlists.map((p) =>
+          p.id === playlistId ? { ...p, tracks: p.tracks.filter((t) => t.id !== trackId) } : p,
+        ),
+      }));
+    },
+
+    reorderPlaylistTrack: (playlistId, fromIndex, toIndex) => {
+      set((s) => ({
+        playlists: s.playlists.map((p) => {
+          if (p.id !== playlistId) return p;
+          const tracks = [...p.tracks];
+          const [moved] = tracks.splice(fromIndex, 1);
+          tracks.splice(toIndex, 0, moved);
+          return { ...p, tracks };
+        }),
+      }));
+    },
+
+    playPlaylist: async (playlistId, startTrack) => {
+      const playlist = get().playlists.find((p) => p.id === playlistId);
+      if (!playlist || playlist.tracks.length === 0) return;
+      const track = startTrack ?? playlist.tracks.find(isPlayable);
+      if (!track) return;
+      await get().playFromList(track, playlist.tracks);
     },
   };
 });

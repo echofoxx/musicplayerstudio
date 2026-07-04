@@ -12,6 +12,10 @@ leaves your browser.
     <td><img src="docs/screenshots/vintage.png" alt="Vintage theme" /></td>
     <td><img src="docs/screenshots/eq-panel.png" alt="5-band EQ panel" /></td>
   </tr>
+  <tr>
+    <td><img src="docs/screenshots/playlist.png" alt="Playlist detail view" /></td>
+    <td><img src="docs/screenshots/visualizer-particles.png" alt="Particles visualizer mode" /></td>
+  </tr>
 </table>
 
 ## Features
@@ -27,9 +31,14 @@ leaves your browser.
 - **5-band EQ** — lowshelf/peaking/highshelf `BiquadFilterNode` chain
   (60Hz–12kHz) with presets (Flat, Bass Boost, Vocal, Treble, Vintage
   Warmth) and an on/off toggle.
-- **Visualizer** — canvas renderer with Bars, Waveform, and a radial
-  "Vinyl" mode, driven by an `AnalyserNode`; toggle it off entirely, or
-  go fullscreen for an immersive view with an auto-fading transport bar.
+- **Visualizer** — canvas renderer with seven modes (Bars, Mirror Bars,
+  Waveform, Vinyl Rings, Particles, Spectrogram, or Off), driven by an
+  `AnalyserNode`; go fullscreen for an immersive view with an
+  auto-fading transport bar.
+- **Playlists** — create, rename, and delete playlists; add tracks from
+  Your Library or search results via the + button on any track row;
+  drag to reorder within a playlist; "Play all" starts the queue.
+  Session-only for now (not persisted across reloads — see Roadmap).
 - **Record scratching** — click-drag the vinyl to scrub through the
   track; playback speed pitch-bends with drag speed for an audible
   "scratch" feel. Audio itself is forward-only (browsers don't reliably
@@ -133,9 +142,12 @@ docker compose up
       (YouTube IFrame Player API)
 - [x] Larger visualizer + fullscreen immersive mode
 - [x] Drag-to-scratch the record (scrub + pitch-bend, forward-only audio)
+- [x] Playlists — create/rename/delete, add/remove/reorder tracks
+- [x] Additional visualizer modes (Mirror Bars, Particles, Spectrogram)
+- [ ] Persist playlists + library across reloads (currently session-only,
+      see below)
 - [ ] Real Spotify search + playback (OAuth Client ID, Premium account,
       Web Playback SDK)
-- [ ] Playlists — save/reorder/rename queues, not just "play this list"
 - [ ] Gapless playback for albums encoded without silence gaps
 - [ ] Waveform seek bar (scrub against the actual amplitude, not a plain
       progress line)

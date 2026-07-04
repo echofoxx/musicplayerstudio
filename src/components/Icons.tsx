@@ -112,3 +112,38 @@ export function ExpandIcon({ size, className }: IconProps) {
     </svg>
   );
 }
+export function PlusIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+export function TrashIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m2 0-.8 12.1a2 2 0 0 1-2 1.9H8.8a2 2 0 0 1-2-1.9L6 7" />
+    </svg>
+  );
+}
+export function GripIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} fill="currentColor">
+      <circle cx="8" cy="6" r="1.4" />
+      <circle cx="8" cy="12" r="1.4" />
+      <circle cx="8" cy="18" r="1.4" />
+      <circle cx="14" cy="6" r="1.4" />
+      <circle cx="14" cy="12" r="1.4" />
+      <circle cx="14" cy="18" r="1.4" />
+    </svg>
+  );
+}
+export function ListMusicIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 6h11M4 12h11M4 18h6" />
+      <circle cx="18" cy="16" r="2.5" />
+      <path d="M20.5 16V6l-3 1" />
+    </svg>
+  );
+}
