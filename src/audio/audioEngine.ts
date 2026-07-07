@@ -167,24 +167,48 @@ export class AudioEngine {
     return !!deck && !deck.el.paused && !deck.el.ended;
   }
 
+  /**
+   * Loads a track into the currently-idle deck without playing it, so a
+   * later instant switch (crossfade = 0) has zero load/buffer delay — true
+   * gapless playback between queued tracks. No-ops if that deck is already
+   * primed with this track, or is mid-crossfade (still holds a track).
+   */
+  preloadNext(track: Track) {
+    this.ensureGraph();
+    if (!track.streamUrl || !this.decks) return;
+    const idleDeck = this.decks[1 - this.activeDeck];
+    if (idleDeck.track) return;
+    idleDeck.track = track;
+    idleDeck.el.src = track.streamUrl;
+    idleDeck.el.currentTime = 0;
+    idleDeck.gain.gain.value = 0;
+  }
+
   async playTrack(track: Track, opts: { crossfade?: boolean } = {}) {
     this.ensureGraph();
     await this.resume();
     const ctx = this.ctx!;
     const decks = this.decks!;
-    const useCrossfade = opts.crossfade && this.crossfadeSeconds > 0 && !!decks[this.activeDeck].track;
 
     const fromIndex = this.activeDeck;
-    const toIndex = useCrossfade ? 1 - this.activeDeck : this.activeDeck;
-    const toDeck = decks[toIndex];
     const fromDeck = decks[fromIndex];
+    const hasCurrent = !!fromDeck.track;
+    // Always land on the other deck once something's already playing, so the
+    // idle deck is consistently available for preloadNext() to prime ahead of time.
+    const toIndex = hasCurrent ? 1 - fromIndex : fromIndex;
+    const toDeck = decks[toIndex];
+    const useCrossfade = !!opts.crossfade && this.crossfadeSeconds > 0 && hasCurrent && toIndex !== fromIndex;
 
     if (!track.streamUrl) return;
 
-    toDeck.track = track;
-    toDeck.el.src = track.streamUrl;
-    toDeck.el.currentTime = 0;
+    const alreadyPrimed = toDeck.track?.id === track.id && toDeck.el.src === track.streamUrl;
     this.crossfadeTriggeredForTrack.delete(track.id);
+
+    toDeck.track = track;
+    if (!alreadyPrimed) {
+      toDeck.el.src = track.streamUrl;
+      toDeck.el.currentTime = 0;
+    }
 
     try {
       await toDeck.el.play();
@@ -192,7 +216,7 @@ export class AudioEngine {
       // Autoplay may be blocked until a user gesture; caller's UI reflects paused state.
     }
 
-    if (useCrossfade && toIndex !== fromIndex) {
+    if (useCrossfade) {
       const dur = this.crossfadeSeconds;
       const t0 = ctx.currentTime;
       fromDeck.gain.gain.cancelScheduledValues(t0);
@@ -210,12 +234,10 @@ export class AudioEngine {
       this.bindEndedHandler(toDeck);
     } else {
       // Instant switch: stop the previous deck, snap the new one to full volume.
-      decks.forEach((d, i) => {
-        if (i !== toIndex) {
-          d.el.pause();
-          d.track = null;
-        }
-      });
+      if (toIndex !== fromIndex) {
+        fromDeck.el.pause();
+        fromDeck.track = null;
+      }
       toDeck.gain.gain.cancelScheduledValues(ctx.currentTime);
       toDeck.gain.gain.setValueAtTime(1, ctx.currentTime);
       this.activeDeck = toIndex;

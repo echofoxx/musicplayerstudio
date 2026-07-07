@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { audioEngine } from '../audio/audioEngine';
 import { youtubePlayer } from '../audio/youtubePlayer';
+import {
+  deletePlaylistMeta,
+  deleteTrack,
+  loadAllPlaylists,
+  loadAllTracks,
+  savePlaylistMeta,
+  saveTrack,
+} from '../db/database';
 import { LocalSource } from '../sources/localSource';
 import { YouTubeSource } from '../sources/youtubeSource';
 import { SpotifySource } from '../sources/spotifySource';
@@ -17,6 +25,7 @@ import {
   type VisualizerMode,
 } from '../types';
 import { parseTrackFile } from '../utils/metadata';
+import { loadSetting, saveSetting } from '../utils/settings';
 
 function shuffleKeeping(list: Track[], keepId: string | undefined): Track[] {
   const rest = list.filter((t) => t.id !== keepId);
@@ -31,6 +40,18 @@ function shuffleKeeping(list: Track[], keepId: string | undefined): Track[] {
 function isPlayable(track: Track): boolean {
   if (track.unplayable) return false;
   return Boolean(track.streamUrl) || Boolean(track.youtubeVideoId);
+}
+
+/** What track would `next()` land on right now, without side effects — used to preload for gapless playback. */
+function peekNextTrack(playOrder: Track[], position: number, repeat: RepeatMode): Track | null {
+  if (playOrder.length === 0) return null;
+  if (repeat === 'one') return playOrder[position] ?? null;
+  let nextPos = position + 1;
+  if (nextPos >= playOrder.length) {
+    if (repeat === 'all') nextPos = 0;
+    else return null;
+  }
+  return playOrder[nextPos] ?? null;
 }
 
 interface PlayerState {
@@ -58,10 +79,12 @@ interface PlayerState {
   isImporting: boolean;
   isScratching: boolean;
   playlists: Playlist[];
+  isHydrated: boolean;
 
   sources: Record<SourceKind, MusicSource>;
 
   importFiles: (files: FileList | File[]) => Promise<void>;
+  removeFromLibrary: (trackId: string) => void;
   playFromList: (track: Track, list: Track[]) => Promise<void>;
   togglePlay: () => void;
   next: (auto?: boolean) => void;
@@ -93,13 +116,17 @@ interface PlayerState {
 
 let playlistCounter = 0;
 
-const persistedTheme = (localStorage.getItem('echo:theme') as ThemeName | null) ?? 'modern-dark';
-
 export const usePlayerStore = create<PlayerState>((set, get) => {
   const sources: Record<SourceKind, MusicSource> = {
     local: new LocalSource(() => get().library),
     youtube: new YouTubeSource(),
     spotify: new SpotifySource(),
+  };
+
+  const preloadUpcoming = () => {
+    const { playOrder, position, repeat } = get();
+    const upcoming = peekNextTrack(playOrder, position, repeat);
+    if (upcoming && upcoming.source === 'local') audioEngine.preloadNext(upcoming);
   };
 
   const playViaEngine = async (track: Track, opts: { crossfade?: boolean } = {}) => {
@@ -112,6 +139,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       youtubePlayer.pause();
       await audioEngine.playTrack(track, opts);
     }
+    preloadUpcoming();
   };
 
   audioEngine.onTimeUpdate(({ currentTime, duration }) => {
@@ -138,6 +166,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     if (get().currentTrack?.source === 'youtube' && !get().isScratching) get().next(true);
   });
 
+  // Rehydrate library + playlists from IndexedDB once, on first load.
+  void (async () => {
+    const tracks = await loadAllTracks();
+    const trackMap = new Map(tracks.map((t) => [t.id, t]));
+    const library = tracks.filter((t) => t.source === 'local');
+    const playlists = await loadAllPlaylists(trackMap);
+    set({ library, playlists, isHydrated: true });
+  })();
+
   return {
     library: [],
     queueSource: [],
@@ -147,15 +184,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     isPlaying: false,
     currentTime: 0,
     duration: 0,
-    volume: 0.85,
-    crossfade: 4,
-    shuffle: false,
-    repeat: 'off',
-    eqEnabled: true,
-    eqGains: EQ_FREQUENCIES.map(() => 0),
-    eqPreset: 'Flat',
-    theme: persistedTheme,
-    visualizer: 'bars',
+    volume: loadSetting('volume', 0.85),
+    crossfade: loadSetting('crossfade', 4),
+    shuffle: loadSetting('shuffle', false),
+    repeat: loadSetting<RepeatMode>('repeat', 'off'),
+    eqEnabled: loadSetting('eqEnabled', true),
+    eqGains: loadSetting('eqGains', EQ_FREQUENCIES.map(() => 0)),
+    eqPreset: loadSetting('eqPreset', 'Flat'),
+    theme: loadSetting<ThemeName>('theme', 'modern-dark'),
+    visualizer: loadSetting<VisualizerMode>('visualizer', 'bars'),
     activeSource: 'local',
     searchQuery: { local: '', youtube: '', spotify: '' },
     searchResults: { local: [], youtube: [], spotify: [] },
@@ -163,13 +200,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     isImporting: false,
     isScratching: false,
     playlists: [],
+    isHydrated: false,
     sources,
 
     importFiles: async (files) => {
       set({ isImporting: true });
       const list = Array.from(files).filter((f) => f.type.startsWith('audio/') || /\.(mp3|wav|flac|m4a|ogg|aac|oga|opus)$/i.test(f.name));
       const parsed = await Promise.all(list.map(parseTrackFile));
-      set((s) => ({ library: [...s.library, ...parsed], isImporting: false }));
+      const tracks = parsed.map((p) => p.track);
+      set((s) => ({ library: [...s.library, ...tracks], isImporting: false }));
+      await Promise.all(
+        list.map((file, i) => saveTrack(parsed[i].track, file, parsed[i].artworkBlob, parsed[i].artworkType)),
+      );
+    },
+
+    removeFromLibrary: (trackId) => {
+      set((s) => ({
+        library: s.library.filter((t) => t.id !== trackId),
+        playlists: s.playlists.map((p) => ({ ...p, tracks: p.tracks.filter((t) => t.id !== trackId) })),
+      }));
+      void deleteTrack(trackId);
+      get().playlists.forEach((p) => void savePlaylistMeta(p));
     },
 
     playFromList: async (track, list) => {
@@ -249,17 +300,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     setVolume: (v) => {
       audioEngine.setMasterVolume(v);
       youtubePlayer.setVolume(v);
+      saveSetting('volume', v);
       set({ volume: v });
     },
 
     setCrossfade: (seconds) => {
       audioEngine.setCrossfadeDuration(seconds);
+      saveSetting('crossfade', seconds);
       set({ crossfade: seconds });
     },
 
     toggleShuffle: () => {
       const { shuffle, queueSource, currentTrack, playOrder } = get();
       const next = !shuffle;
+      saveSetting('shuffle', next);
       if (next) {
         const reshuffled = shuffleKeeping(queueSource, currentTrack?.id);
         set({ shuffle: true, playOrder: reshuffled, position: 0 });
@@ -272,7 +326,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     cycleRepeat: () => {
       const order: RepeatMode[] = ['off', 'all', 'one'];
       const idx = order.indexOf(get().repeat);
-      set({ repeat: order[(idx + 1) % order.length] });
+      const next = order[(idx + 1) % order.length];
+      saveSetting('repeat', next);
+      set({ repeat: next });
     },
 
     setEQGain: (index, gain) => {
@@ -280,6 +336,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set((s) => {
         const eqGains = [...s.eqGains];
         eqGains[index] = gain;
+        saveSetting('eqGains', eqGains);
+        saveSetting('eqPreset', 'Custom');
         return { eqGains, eqPreset: 'Custom' };
       });
     },
@@ -288,6 +346,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const gains = EQ_PRESETS[name];
       if (!gains) return;
       gains.forEach((g, i) => audioEngine.setEQGain(i, g));
+      saveSetting('eqGains', gains);
+      saveSetting('eqPreset', name);
       set({ eqGains: gains, eqPreset: name });
     },
 
@@ -295,15 +355,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const enabled = !get().eqEnabled;
       const gains = enabled ? get().eqGains : EQ_FREQUENCIES.map(() => 0);
       gains.forEach((g, i) => audioEngine.setEQGain(i, g));
+      saveSetting('eqEnabled', enabled);
       set({ eqEnabled: enabled });
     },
 
     setTheme: (theme) => {
-      localStorage.setItem('echo:theme', theme);
+      saveSetting('theme', theme);
       set({ theme });
     },
 
-    setVisualizer: (mode) => set({ visualizer: mode }),
+    setVisualizer: (mode) => {
+      saveSetting('visualizer', mode);
+      set({ visualizer: mode });
+    },
 
     setActiveSource: (kind) => set({ activeSource: kind }),
 
@@ -331,7 +395,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     createPlaylist: (name) => {
       const id = `playlist-${Date.now()}-${playlistCounter++}`;
       const trimmed = name.trim() || 'Untitled Playlist';
-      set((s) => ({ playlists: [...s.playlists, { id, name: trimmed, tracks: [] }] }));
+      const playlist: Playlist = { id, name: trimmed, tracks: [] };
+      set((s) => ({ playlists: [...s.playlists, playlist] }));
+      void savePlaylistMeta(playlist);
       return id;
     },
 
@@ -339,10 +405,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const trimmed = name.trim();
       if (!trimmed) return;
       set((s) => ({ playlists: s.playlists.map((p) => (p.id === id ? { ...p, name: trimmed } : p)) }));
+      const updated = get().playlists.find((p) => p.id === id);
+      if (updated) void savePlaylistMeta(updated);
     },
 
     deletePlaylist: (id) => {
       set((s) => ({ playlists: s.playlists.filter((p) => p.id !== id) }));
+      void deletePlaylistMeta(id);
     },
 
     addTrackToPlaylist: (playlistId, track) => {
@@ -353,6 +422,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             : p,
         ),
       }));
+      const updated = get().playlists.find((p) => p.id === playlistId);
+      if (!updated) return;
+      // Non-local tracks (e.g. YouTube search results) aren't in `library`, so
+      // record their metadata too — otherwise they can't be rehydrated on reload.
+      if (track.source !== 'local') void saveTrack(track);
+      void savePlaylistMeta(updated);
     },
 
     removeTrackFromPlaylist: (playlistId, trackId) => {
@@ -361,6 +436,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           p.id === playlistId ? { ...p, tracks: p.tracks.filter((t) => t.id !== trackId) } : p,
         ),
       }));
+      const updated = get().playlists.find((p) => p.id === playlistId);
+      if (updated) void savePlaylistMeta(updated);
     },
 
     reorderPlaylistTrack: (playlistId, fromIndex, toIndex) => {
@@ -373,6 +450,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           return { ...p, tracks };
         }),
       }));
+      const updated = get().playlists.find((p) => p.id === playlistId);
+      if (updated) void savePlaylistMeta(updated);
     },
 
     playPlaylist: async (playlistId, startTrack) => {

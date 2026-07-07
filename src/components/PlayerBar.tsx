@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePlayerStore } from '../store/playerStore';
 import { formatTime } from '../utils/format';
+import { WaveformSeekBar } from './WaveformSeekBar';
 import {
   NextIcon,
   PauseIcon,
@@ -77,20 +78,30 @@ export function PlayerBar({ onToggleEQ, eqOpen }: Props) {
         <span className="text-xs w-10 text-right tabular-nums" style={{ color: 'var(--text-faint)' }}>
           {formatTime(currentTime)}
         </span>
-        <input
-          type="range"
-          min={0}
-          max={duration || 0}
-          step={0.1}
-          value={Math.min(currentTime, duration || 0)}
-          onChange={(e) => seek(Number(e.target.value))}
-          disabled={disabled}
-          className="flex-1"
-          style={{
-            background: `linear-gradient(to right, var(--accent) ${progressPct}%, var(--border) ${progressPct}%)`,
-          }}
-          aria-label="Seek"
-        />
+        {currentTrack?.waveformPeaks?.length ? (
+          <WaveformSeekBar
+            peaks={currentTrack.waveformPeaks}
+            currentTime={currentTime}
+            duration={duration}
+            onSeek={seek}
+            disabled={disabled}
+          />
+        ) : (
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            step={0.1}
+            value={Math.min(currentTime, duration || 0)}
+            onChange={(e) => seek(Number(e.target.value))}
+            disabled={disabled}
+            className="flex-1"
+            style={{
+              background: `linear-gradient(to right, var(--accent) ${progressPct}%, var(--border) ${progressPct}%)`,
+            }}
+            aria-label="Seek"
+          />
+        )}
         <span className="text-xs w-10 tabular-nums" style={{ color: 'var(--text-faint)' }}>
           {formatTime(duration)}
         </span>
@@ -136,7 +147,7 @@ export function PlayerBar({ onToggleEQ, eqOpen }: Props) {
 
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2" title={isYouTube ? 'Crossfade is unavailable for YouTube tracks' : 'Crossfade duration'}>
-            <span className="text-xs whitespace-nowrap" style={{ color: 'var(--text-faint)' }}>
+            <span className="hidden md:inline text-xs whitespace-nowrap" style={{ color: 'var(--text-faint)' }}>
               Crossfade {crossfade}s
             </span>
             <input
@@ -147,7 +158,7 @@ export function PlayerBar({ onToggleEQ, eqOpen }: Props) {
               value={crossfade}
               disabled={isYouTube}
               onChange={(e) => setCrossfade(Number(e.target.value))}
-              className="w-20 disabled:opacity-40"
+              className="w-16 sm:w-20 disabled:opacity-40"
             />
           </div>
 
@@ -162,7 +173,7 @@ export function PlayerBar({ onToggleEQ, eqOpen }: Props) {
               step={0.01}
               value={volume}
               onChange={(e) => setVolume(Number(e.target.value))}
-              className="w-24"
+              className="w-16 sm:w-24"
             />
           </div>
 

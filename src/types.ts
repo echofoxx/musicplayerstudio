@@ -14,6 +14,8 @@ export interface Track {
   unplayable?: boolean;
   /** YouTube video ID — playback for these goes through the IFrame Player, not the Web Audio engine. */
   youtubeVideoId?: string;
+  /** Normalized (0..1) peak amplitudes for the waveform seek bar. Local tracks only. */
+  waveformPeaks?: number[];
 }
 
 export interface Playlist {

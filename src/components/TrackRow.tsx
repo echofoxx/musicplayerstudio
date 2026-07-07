@@ -35,7 +35,9 @@ export function TrackRow({ track, isActive, isPlaying, onPlay, showAddToPlaylist
       tabIndex={playable ? 0 : -1}
       onClick={() => playable && onPlay()}
       onKeyDown={(e) => {
-        if (playable && (e.key === 'Enter' || e.key === ' ')) onPlay();
+        // Space is reserved for the global play/pause shortcut (see
+        // useKeyboardShortcuts) — only Enter activates a focused row here.
+        if (playable && e.key === 'Enter') onPlay();
       }}
       aria-disabled={!playable}
       className="group w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left cursor-pointer transition-colors aria-disabled:cursor-not-allowed aria-disabled:opacity-50"

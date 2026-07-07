@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { usePlayerStore } from '../store/playerStore';
 import { TrackRow } from './TrackRow';
-import { UploadIcon } from './Icons';
+import { TrashIcon, UploadIcon } from './Icons';
 
 export function LibraryPanel() {
   const library = usePlayerStore((s) => s.library);
@@ -11,6 +11,7 @@ export function LibraryPanel() {
   const importFiles = usePlayerStore((s) => s.importFiles);
   const playFromList = usePlayerStore((s) => s.playFromList);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
+  const removeFromLibrary = usePlayerStore((s) => s.removeFromLibrary);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -60,17 +61,28 @@ export function LibraryPanel() {
           </p>
         ) : (
           library.map((track) => (
-            <TrackRow
-              key={track.id}
-              track={track}
-              isActive={currentTrack?.id === track.id}
-              isPlaying={isPlaying}
-              onPlay={() => {
-                if (currentTrack?.id === track.id) togglePlay();
-                else playFromList(track, library);
-              }}
-              showAddToPlaylist
-            />
+            <div key={track.id} className="flex items-center gap-1 group">
+              <div className="flex-1 min-w-0">
+                <TrackRow
+                  track={track}
+                  isActive={currentTrack?.id === track.id}
+                  isPlaying={isPlaying}
+                  onPlay={() => {
+                    if (currentTrack?.id === track.id) togglePlay();
+                    else playFromList(track, library);
+                  }}
+                  showAddToPlaylist
+                />
+              </div>
+              <button
+                onClick={() => removeFromLibrary(track.id)}
+                title="Remove from library"
+                className="p-1 shrink-0 cursor-pointer opacity-0 group-hover:opacity-100"
+                style={{ color: 'var(--text-faint)' }}
+              >
+                <TrashIcon size={14} />
+              </button>
+            </div>
           ))
         )}
       </div>

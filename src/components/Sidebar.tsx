@@ -11,37 +11,53 @@ const TABS: { kind: SidebarTab; label: string }[] = [
   { kind: 'spotify', label: 'Spotify' },
 ];
 
-export function Sidebar() {
+interface Props {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function Sidebar({ open, onClose }: Props) {
   const activeSource = usePlayerStore((s) => s.activeSource);
   const setActiveSource = usePlayerStore((s) => s.setActiveSource);
 
   return (
-    <aside
-      className="w-full sm:w-80 shrink-0 flex flex-col border-r min-h-0"
-      style={{ borderColor: 'var(--border)', background: 'var(--bg-elevated)' }}
-    >
-      <div className="flex px-2 pt-2 gap-1 border-b overflow-x-auto" style={{ borderColor: 'var(--border)' }}>
-        {TABS.map((tab) => (
-          <button
-            key={tab.kind}
-            onClick={() => setActiveSource(tab.kind)}
-            className="flex-1 text-xs px-2 py-2 rounded-t-lg cursor-pointer transition-colors truncate whitespace-nowrap"
-            style={{
-              color: activeSource === tab.kind ? 'var(--accent)' : 'var(--text-muted)',
-              borderBottom: activeSource === tab.kind ? '2px solid var(--accent)' : '2px solid transparent',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+    <>
+      {open && (
+        <div
+          className="sm:hidden absolute inset-0 z-30"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+          onClick={onClose}
+        />
+      )}
+      <aside
+        className={`w-72 sm:w-80 shrink-0 flex flex-col border-r min-h-0 absolute sm:static inset-y-0 left-0 z-40 transition-transform duration-200 ${
+          open ? 'translate-x-0' : '-translate-x-full'
+        } sm:translate-x-0`}
+        style={{ borderColor: 'var(--border)', background: 'var(--bg-elevated)' }}
+      >
+        <div className="flex px-2 pt-2 gap-1 border-b overflow-x-auto" style={{ borderColor: 'var(--border)' }}>
+          {TABS.map((tab) => (
+            <button
+              key={tab.kind}
+              onClick={() => setActiveSource(tab.kind)}
+              className="flex-1 text-xs px-2 py-2 rounded-t-lg cursor-pointer transition-colors truncate whitespace-nowrap"
+              style={{
+                color: activeSource === tab.kind ? 'var(--accent)' : 'var(--text-muted)',
+                borderBottom: activeSource === tab.kind ? '2px solid var(--accent)' : '2px solid transparent',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-      <div className="flex-1 min-h-0">
-        {activeSource === 'local' && <LibraryPanel />}
-        {activeSource === 'playlists' && <PlaylistsPanel />}
-        {activeSource === 'youtube' && <StreamingPanel kind="youtube" />}
-        {activeSource === 'spotify' && <StreamingPanel kind="spotify" />}
-      </div>
-    </aside>
+        <div className="flex-1 min-h-0">
+          {activeSource === 'local' && <LibraryPanel />}
+          {activeSource === 'playlists' && <PlaylistsPanel />}
+          {activeSource === 'youtube' && <StreamingPanel kind="youtube" />}
+          {activeSource === 'spotify' && <StreamingPanel kind="spotify" />}
+        </div>
+      </aside>
+    </>
   );
 }

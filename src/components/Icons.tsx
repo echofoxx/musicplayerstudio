@@ -147,3 +147,10 @@ export function ListMusicIcon({ size, className }: IconProps) {
     </svg>
   );
 }
+export function MenuIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}

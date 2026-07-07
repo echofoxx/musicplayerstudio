@@ -16,6 +16,10 @@ leaves your browser.
     <td><img src="docs/screenshots/playlist.png" alt="Playlist detail view" /></td>
     <td><img src="docs/screenshots/visualizer-particles.png" alt="Particles visualizer mode" /></td>
   </tr>
+  <tr>
+    <td><img src="docs/screenshots/waveform-seekbar.png" alt="Waveform seek bar" /></td>
+    <td><img src="docs/screenshots/mobile-drawer.png" alt="Mobile sidebar drawer" /></td>
+  </tr>
 </table>
 
 ## Features
@@ -38,7 +42,28 @@ leaves your browser.
 - **Playlists** — create, rename, and delete playlists; add tracks from
   Your Library or search results via the + button on any track row;
   drag to reorder within a playlist; "Play all" starts the queue.
-  Session-only for now (not persisted across reloads — see Roadmap).
+- **Persistent library** — imported files, their artwork, and playlists
+  survive a page reload via IndexedDB (the actual audio/artwork blobs are
+  stored, not just references — a fresh `blob:` URL is minted each load).
+  Player preferences (volume, crossfade, shuffle/repeat, EQ, visualizer
+  choice) persist too. Remove a track from Your Library with the trash
+  icon on hover.
+- **Gapless playback** — the next queued track preloads into the idle
+  deck ahead of time, so a crossfade-off (instant) switch has no
+  load/buffer gap between tracks.
+- **Waveform seek bar** — local tracks show their actual amplitude shape
+  (computed once on import, cached alongside the track) instead of a
+  plain progress line; click or drag anywhere to seek.
+- **Keyboard shortcuts** — Space to play/pause, ←/→ to seek, Shift+←/→
+  for prev/next, ↑/↓ for volume, M to mute (see the **?** icon in the
+  header). Disabled while typing in a field.
+- **Mobile-responsive** — the sidebar becomes a slide-over drawer below
+  the `sm` breakpoint (toggle via the header's menu icon), with a
+  backdrop-tap-to-close and touch-friendly controls throughout.
+- **Installable (PWA)** — the app shell (HTML/JS/CSS) is precached by a
+  service worker, so it loads even offline. Previously-imported local
+  tracks keep working offline too, since their audio lives in IndexedDB,
+  not on a server.
 - **Record scratching** — click-drag the vinyl to scrub through the
   track; playback speed pitch-bends with drag speed for an audible
   "scratch" feel. Audio itself is forward-only (browsers don't reliably
@@ -62,7 +87,7 @@ leaves your browser.
 ## Tech stack
 
 React 19 · TypeScript · Vite · Tailwind CSS v4 · Zustand · Web Audio API ·
-`music-metadata`
+`music-metadata` · IndexedDB (via `idb`) · `vite-plugin-pwa`
 
 ## Installation
 
@@ -144,18 +169,15 @@ docker compose up
 - [x] Drag-to-scratch the record (scrub + pitch-bend, forward-only audio)
 - [x] Playlists — create/rename/delete, add/remove/reorder tracks
 - [x] Additional visualizer modes (Mirror Bars, Particles, Spectrogram)
-- [ ] Persist playlists + library across reloads (currently session-only,
-      see below)
+- [x] Persist library + playlists across reloads (IndexedDB) and
+      preferences (localStorage)
+- [x] Gapless playback (idle-deck preloading)
+- [x] Waveform seek bar
+- [x] Keyboard shortcuts
+- [x] Mobile-responsive layout (slide-over sidebar drawer)
+- [x] PWA support (installable, offline app shell)
 - [ ] Real Spotify search + playback (OAuth Client ID, Premium account,
       Web Playback SDK)
-- [ ] Gapless playback for albums encoded without silence gaps
-- [ ] Waveform seek bar (scrub against the actual amplitude, not a plain
-      progress line)
-- [ ] Keyboard shortcuts (space to play/pause, arrows to seek/skip)
-- [ ] Mobile-responsive layout pass (currently optimized for desktop)
-- [ ] Persist library + queue across reloads (IndexedDB instead of only
-      in-memory state)
-- [ ] Optional PWA support for offline local-library playback
 
 Contributions and issues welcome — this is an active prototype.
 
